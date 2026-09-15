@@ -1,0 +1,4 @@
+1|1|DSA Revision Notes|Data Structures|Quick revision for stacks, queues and trees.|Revision Notes|uploaded_notes/README_RESOURCE.txt|5|10
+2|1|DSA Previous Year Paper 2025|Data Structures|Practice paper for exam preparation.|Previous Year Questions|uploaded_notes/README_RESOURCE.txt|8|15
+3|1|OOP Important Questions|OOP|Important questions for OOP exam.|Important Questions|uploaded_notes/README_RESOURCE.txt|6|12
+4|1|AI ML Short Notes|AI ML|Short notes for AI and ML revision.|Short Notes|uploaded_notes/README_RESOURCE.txt|4|8
