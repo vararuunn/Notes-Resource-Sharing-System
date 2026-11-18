@@ -1,12 +1,13 @@
+
 #include <iostream>
+#include <string>
 #include <fstream>
 #include <iomanip>
-#include <map>
-#include <string>
+#include <limits>
+#include <cctype>
 #include <cstdlib>
 using namespace std;
 
-// No .h files are used. Include Resource.cpp to make Resource available here.
 #include "Resource.cpp"
 
 class ResourceManager {
@@ -14,102 +15,126 @@ private:
     Resource* resources;
     int count;
     int capacity;
-    int nextId;
 
-    void growArray();
+    void growArray() {
+        capacity = capacity * 2;
+
+        Resource* newArray = new Resource[capacity];
+
+        for (int i = 0; i < count; i++) {
+            newArray[i] = resources[i];
+        }
+
+        delete[] resources;
+        resources = newArray;
+    }
 
 public:
-    ResourceManager();
-    ~ResourceManager();
+    ResourceManager() {
+        count = 0;
+        capacity = 2;
+        resources = new Resource[capacity];
+        loadFromFile();
+    }
 
-    ResourceManager(const ResourceManager&) = delete;
-    ResourceManager& operator=(const ResourceManager&) = delete;
+    ~ResourceManager() {
+        saveToFile();
+        delete[] resources;
+    }
 
     void addResource();
     void displayAll() const;
     void searchResource() const;
+    void editResource();
+    void deleteResource();
     void likeResource();
     void showSubjectStatistics() const;
     void openResourceFile();
 
-    void saveToFile(const string& filename) const;
-    void loadFromFile(const string& filename);
+    void filterBySubject() const;
+    void filterByType() const;
+    void sortByLikes() const;
+
+    void saveToFile() const;
+    void loadFromFile();
+
+    int getCount() const {
+        return count;
+    }
+
+    const Resource& getResource(int index) const {
+        return resources[index];
+    }
 };
 
-ResourceManager::ResourceManager() {
-    capacity = 2;
-    count = 0;
-    nextId = 1;
-    resources = new Resource[capacity];
-}
-
-ResourceManager::~ResourceManager() {
-    delete[] resources;
-}
-
-void ResourceManager::growArray() {
-    capacity = capacity * 2;
-    Resource* newArray = new Resource[capacity];
-
-    for (int i = 0; i < count; i++) {
-        newArray[i] = resources[i];
-    }
-
-    delete[] resources;
-    resources = newArray;
-}
+#include "ResourceFeatures.cpp"
 
 void ResourceManager::addResource() {
-    string title, subject, description, type, path;
-    int choice;
-
-    cout << "Enter title: ";
-    getline(cin, title);
-    cout << "Enter subject: ";
-    getline(cin, subject);
-    cout << "Enter description: ";
-    getline(cin, description);
-
-    cout << "\n1. Complete Notes\n2. Short Notes\n3. Important Questions\n";
-    cout << "4. Previous Year Questions\n5. Revision Notes\n";
-    cout << "Choose type: ";
-
-    if (!(cin >> choice)) {
-        cin.clear();
-        cin.ignore(10000, '\n');
-        cout << "Invalid choice.\n";
-        return;
-    }
-    cin.ignore(10000, '\n');
-
-    if (choice == 1) type = "Complete Notes";
-    else if (choice == 2) type = "Short Notes";
-    else if (choice == 3) type = "Important Questions";
-    else if (choice == 4) type = "Previous Year Questions";
-    else if (choice == 5) type = "Revision Notes";
-    else {
-        cout << "Invalid type. Resource not added.\n";
-        return;
-    }
-
-    cout << "Enter file path (or press Enter to skip): ";
-    getline(cin, path);
-
     if (count == capacity) {
         growArray();
     }
 
-    resources[count] = Resource(nextId, title, subject, description, type, path);
+    int id, choice;
+    string title, subject, description, type, filePath;
+
+    cout << "\nEnter Resource ID: ";
+    cin >> id;
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+    cout << "Enter Title: ";
+    getline(cin, title);
+
+    cout << "Enter Subject: ";
+    getline(cin, subject);
+
+    cout << "Enter Description: ";
+    getline(cin, description);
+
+    cout << "\n1. Complete Notes";
+    cout << "\n2. Short Notes";
+    cout << "\n3. Important Questions";
+    cout << "\n4. Previous Year Questions";
+    cout << "\n5. Revision Notes";
+    cout << "\nEnter Resource Type: ";
+
+    cin >> choice;
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+    if (choice == 1)
+        type = "Complete Notes";
+    else if (choice == 2)
+        type = "Short Notes";
+    else if (choice == 3)
+        type = "Important Questions";
+    else if (choice == 4)
+        type = "Previous Year Questions";
+    else if (choice == 5)
+        type = "Revision Notes";
+    else {
+        cout << "Invalid choice.\n";
+        return;
+    }
+
+    cout << "Enter Google Drive link or file path: ";
+    getline(cin, filePath);
+
+    resources[count] = Resource(id, title, subject, description,
+                                type, filePath);
+
     count++;
-    nextId++;
-    cout << "Resource added successfully!\n";
+
+    saveToFile();
+
+    cout << "\nResource added successfully!\n";
 }
 
 void ResourceManager::displayAll() const {
     if (count == 0) {
-        cout << "No resources found.\n";
+        cout << "\nNo resources available.\n";
         return;
     }
+
+    cout << "\n===== ALL RESOURCES =====\n";
 
     for (int i = 0; i < count; i++) {
         resources[i].display();
@@ -118,150 +143,242 @@ void ResourceManager::displayAll() const {
 }
 
 void ResourceManager::searchResource() const {
-    string keyword;
-    cout << "Enter title or subject: ";
-    getline(cin, keyword);
+    string search;
+
+    cout << "\nEnter title to search: ";
+    getline(cin, search);
+
+    for (int i = 0; i < (int)search.length(); i++) {
+        search[i] = tolower((unsigned char)search[i]);
+    }
 
     bool found = false;
-    for (int i = 0; i < count; i++) {
 
-        if (resources[i].getTitle().find(keyword) != string::npos ||
-            resources[i].getSubject().find(keyword) != string::npos) {
+    for (int i = 0; i < count; i++) {
+        string title = resources[i].getTitle();
+
+        for (int j = 0; j < (int)title.length(); j++) {
+            title[j] = tolower((unsigned char)title[j]);
+        }
+
+        if (title.find(search) != string::npos) {
             resources[i].display();
+            cout << "--------------------\n";
             found = true;
         }
     }
 
     if (!found) {
-        cout << "No matching resource found.\n";
+        cout << "\nResource not found.\n";
     }
+}
+
+void ResourceManager::editResource() {
+    int id;
+
+    cout << "\nEnter Resource ID to edit: ";
+    cin >> id;
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+    for (int i = 0; i < count; i++) {
+        if (resources[i].getId() == id) {
+            string title, subject, description, filePath;
+
+            cout << "Enter new Title: ";
+            getline(cin, title);
+
+            cout << "Enter new Subject: ";
+            getline(cin, subject);
+
+            cout << "Enter new Description: ";
+            getline(cin, description);
+
+            cout << "Enter new Google Drive link or file path: ";
+            getline(cin, filePath);
+
+            string type = resources[i].getType();
+            int likes = resources[i].getLikes();
+
+            resources[i] = Resource(id, title, subject,
+                                    description, type,
+                                    filePath, likes);
+
+            saveToFile();
+
+            cout << "\nResource updated successfully!\n";
+            return;
+        }
+    }
+
+    cout << "\nResource ID not found.\n";
+}
+
+void ResourceManager::deleteResource() {
+    int id;
+
+    cout << "\nEnter Resource ID to delete: ";
+    cin >> id;
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+    for (int i = 0; i < count; i++) {
+        if (resources[i].getId() == id) {
+            for (int j = i; j < count - 1; j++) {
+                resources[j] = resources[j + 1];
+            }
+
+            count--;
+            saveToFile();
+
+            cout << "\nResource deleted successfully!\n";
+            return;
+        }
+    }
+
+    cout << "\nResource ID not found.\n";
 }
 
 void ResourceManager::likeResource() {
     int id;
-    cout << "Enter resource ID to like: ";
 
-    if (!(cin >> id)) {
-        cin.clear();
-        cin.ignore(10000, '\n');
-        cout << "Invalid ID.\n";
-        return;
-    }
-    cin.ignore(10000, '\n');
+    cout << "\nEnter Resource ID to like: ";
+    cin >> id;
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
 
     for (int i = 0; i < count; i++) {
         if (resources[i].getId() == id) {
             resources[i].addLike();
-            cout << "Resource liked!\n";
+            saveToFile();
+
+            cout << "\nResource liked successfully!\n";
             return;
         }
     }
-    cout << "Resource ID not found.\n";
+
+    cout << "\nResource ID not found.\n";
 }
 
 void ResourceManager::showSubjectStatistics() const {
-    map<string, int> subjectCount;
-
-    for (int i = 0; i < count; i++) {
-
-        subjectCount[resources[i].getSubject()]++;
-    }
-
-    if (subjectCount.empty()) {
-        cout << "No statistics available.\n";
+    if (count == 0) {
+        cout << "\nNo resources available.\n";
         return;
     }
 
-    for (const auto& item : subjectCount) {
-        cout << item.first << ": " << item.second << " resource(s)\n";
+    cout << "\n===== SUBJECT STATISTICS =====\n";
+
+    for (int i = 0; i < count; i++) {
+        bool alreadyCounted = false;
+
+        for (int j = 0; j < i; j++) {
+            if (resources[i].getSubject() ==
+                resources[j].getSubject()) {
+                alreadyCounted = true;
+                break;
+            }
+        }
+
+        if (!alreadyCounted) {
+            int total = 0;
+
+            for (int j = 0; j < count; j++) {
+                if (resources[i].getSubject() ==
+                    resources[j].getSubject()) {
+                    total++;
+                }
+            }
+
+            cout << resources[i].getSubject()
+                 << " : " << total << " resources\n";
+        }
     }
 }
 
 void ResourceManager::openResourceFile() {
     int id;
-    cout << "Enter resource ID to open: ";
 
-    if (!(cin >> id)) {
-        cin.clear();
-        cin.ignore(10000, '\n');
-        cout << "Invalid ID.\n";
-        return;
-    }
-    cin.ignore(10000, '\n');
+    cout << "\nEnter Resource ID to open: ";
+    cin >> id;
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
 
     for (int i = 0; i < count; i++) {
         if (resources[i].getId() == id) {
             string path = resources[i].getFilePath();
-            if (path.size() >= 2 && path.front() == '\"' && path.back() == '\"') {
-                path = path.substr(1, path.size() - 2);
-            }
+
             if (path.empty()) {
-                cout << "No file path saved for this resource.\n";
+                cout << "\nNo file link available.\n";
                 return;
             }
 
             string command = "start \"\" \"" + path + "\"";
-            int result = system(command.c_str());
-            if (result != 0) {
-                cout << "Could not open the file. Check the saved path.\n";
-            }
+            system(command.c_str());
+
+            cout << "\nOpening resource...\n";
             return;
         }
     }
-    cout << "Resource ID not found.\n";
+
+    cout << "\nResource ID not found.\n";
 }
 
-void ResourceManager::saveToFile(const string& filename) const {
-    ofstream file(filename);
+void ResourceManager::saveToFile() const {
+    ofstream file("resources.txt");
+
     if (!file) {
-        cout << "Could not save data.\n";
+        cout << "\nUnable to save resources.\n";
         return;
     }
 
-    file << count << '\n';
+    file << count << "\n";
+
     for (int i = 0; i < count; i++) {
-        file << resources[i].getId() << '\n';
-        file << quoted(resources[i].getTitle()) << '\n';
-        file << quoted(resources[i].getSubject()) << '\n';
-        file << quoted(resources[i].getDescription()) << '\n';
-        file << quoted(resources[i].getType()) << '\n';
-        file << quoted(resources[i].getFilePath()) << '\n';
-        file << resources[i].getLikes() << '\n';
+        file << resources[i].getId() << "\n";
+        file << quoted(resources[i].getTitle()) << "\n";
+        file << quoted(resources[i].getSubject()) << "\n";
+        file << quoted(resources[i].getDescription()) << "\n";
+        file << quoted(resources[i].getType()) << "\n";
+        file << quoted(resources[i].getFilePath()) << "\n";
+        file << resources[i].getLikes() << "\n";
     }
+
+    file.close();
 }
 
-void ResourceManager::loadFromFile(const string& filename) {
-    ifstream file(filename);
+void ResourceManager::loadFromFile() {
+    ifstream file("resources.txt");
+
     if (!file) {
         return;
     }
 
-    int savedCount;
-    if (!(file >> savedCount)) {
+    int total;
+
+    if (!(file >> total)) {
         return;
     }
 
-    for (int i = 0; i < savedCount; i++) {
+    for (int i = 0; i < total; i++) {
         int id, likes;
-        string title, subject, description, type, path;
+        string title, subject, description, type, filePath;
 
-        if (!(file >> id >> quoted(title) >> quoted(subject)
-                  >> quoted(description) >> quoted(type)
-                  >> quoted(path) >> likes)) {
-            cout << "Could not read saved resources.\n";
-            return;
+        if (!(file >> id
+                  >> quoted(title)
+                  >> quoted(subject)
+                  >> quoted(description)
+                  >> quoted(type)
+                  >> quoted(filePath)
+                  >> likes)) {
+            break;
         }
 
         if (count == capacity) {
             growArray();
         }
 
-        resources[count] = Resource(id, title, subject, description, type, path, likes);
+        resources[count] = Resource(id, title, subject,
+                                    description, type,
+                                    filePath, likes);
+
         count++;
-
-        if (id >= nextId) {
-            nextId = id + 1;
-        }
     }
-}
 
+    file.close();
+}
